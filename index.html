@@ -389,29 +389,29 @@
       </div>
     </div>
 
-<!-- 2. بطاقات الإحصائيات الخمسة -->
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-    <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm text-center">
-      <div class="text-3xl md:text-4xl font-extrabold text-gray-800" id="cardTotal">0</div>
-      <div class="text-xs text-gray-500 font-semibold mt-1">إجمالي العملاء بالقسم</div>
+    <!-- 2. بطاقات الإحصائيات الخمسة (بما فيها بطاقة تم المتابعة في الأعلى) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm text-center">
+        <div class="text-3xl md:text-4xl font-extrabold text-gray-800" id="cardTotal">0</div>
+        <div class="text-xs text-gray-500 font-semibold mt-1">إجمالي العملاء بالقسم</div>
+      </div>
+      <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm text-center">
+        <div class="text-3xl md:text-4xl font-extrabold text-emerald-500" id="cardDone">0</div>
+        <div class="text-xs text-gray-500 font-semibold mt-1">تم التواصل</div>
+      </div>
+      <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm text-center">
+        <div class="text-3xl md:text-4xl font-extrabold text-amber-500" id="cardPending">0</div>
+        <div class="text-xs text-gray-500 font-semibold mt-1">في الانتظار</div>
+      </div>
+      <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm text-center">
+        <div class="text-3xl md:text-4xl font-extrabold text-blue-600" id="cardRevenue">0</div>
+        <div class="text-xs text-gray-500 font-semibold mt-1">إجمالي المبالغ</div>
+      </div>
+      <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm text-center">
+        <div class="text-3xl md:text-4xl font-extrabold text-indigo-600" id="cardFollowUp">0</div>
+        <div class="text-xs text-gray-500 font-semibold mt-1">تم المتابعة</div>
+      </div>
     </div>
-    <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm text-center">
-      <div class="text-3xl md:text-4xl font-extrabold text-emerald-500" id="cardDone">0</div>
-      <div class="text-xs text-gray-500 font-semibold mt-1">تم التواصل</div>
-    </div>
-    <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm text-center">
-      <div class="text-3xl md:text-4xl font-extrabold text-amber-500" id="cardPending">0</div>
-      <div class="text-xs text-gray-500 font-semibold mt-1">في الانتظار</div>
-    </div>
-    <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm text-center">
-      <div class="text-3xl md:text-4xl font-extrabold text-blue-600" id="cardRevenue">0</div>
-      <div class="text-xs text-gray-500 font-semibold mt-1">إجمالي المبالغ</div>
-    </div>
-    <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm text-center">
-      <div class="text-3xl md:text-4xl font-extrabold text-indigo-600" id="cardFollowUp">0</div>
-      <div class="text-xs text-gray-500 font-semibold mt-1">تم المتابعة</div>
-    </div>
-  </div>
 
     <!-- 3. شريط البحث والتبويبات والأزرار -->
     <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-4">
@@ -991,7 +991,7 @@
         <div>
           <label class="block text-xs font-semibold text-gray-600 mb-1">الموظف المسؤول</label>
           <select id="clientEmployeeSelect" class="w-full border rounded-xl p-2.5 text-sm outline-none focus:border-blue-500 bg-white font-semibold">
-            <option value="عبدالرحمن أبو شامة" selected>عبدالرحمن</option>
+            <option value="عبدالرحمن" selected>عبدالرحمن</option>
             <option value="مسؤولة قسم السيدات">مسؤولة قسم السيدات</option>
             <option value="إبراهيم البغدادي">إبراهيم البغدادي</option>
             <option value="محمد مدني">محمد مدني</option>
@@ -1322,7 +1322,6 @@
         const seenPhones = new Map();
         const duplicateIdsToDelete = [];
 
-        // ترتيب بحيث نفضل الاحتفاظ بالسجلات ذات الحالة المكتملة أو الأحدث
         const sorted = [...clients].sort((a, b) => {
           if (isContactDoneStatus(a.status) && !isContactDoneStatus(b.status)) return -1;
           if (isContactDoneStatus(b.status) && !isContactDoneStatus(a.status)) return 1;
@@ -3215,7 +3214,7 @@
               } else {
                 logActivity(
                   'تغيير حالة',
-                  currentUser ? currentUser.name : (targetClient ? targetClient.employee : 'عبدالرحمن أبو شامة'),
+                  currentUser ? currentUser.name : (targetClient ? targetClient.employee : 'عبدالرحمن'),
                   targetClient ? targetClient.name : '-',
                   `تم تغيير الحالة من [${oldStatus}] إلى [${newStatus}]`
                 );
@@ -3349,7 +3348,7 @@
         const empCustom = document.getElementById('clientEmployeeCustom');
         const empName = client.employee || 'عبدالرحمن';
 
-        if (empName === 'عبدالرحمن أبو شامة' || empName === 'مسؤولة قسم السيدات' || empName === 'إبراهيم البغدادي' || empName === 'محمد مدني') {
+        if (empName === 'عبدالرحمن' || empName === 'مسؤولة قسم السيدات' || empName === 'إبراهيم البغدادي' || empName === 'محمد مدني') {
           empSel.value = empName;
           empCustom.style.display = 'none';
           empCustom.value = '';
@@ -3495,7 +3494,7 @@
 
         const empMap = {};
         monthClients.forEach(c => {
-          const emp = c.employee || 'عبدالرحمن أبو شامة';
+          const emp = c.employee || 'عبدالرحمن';
           if (!empMap[emp]) empMap[emp] = { total: 0, done: 0, noAnswer: 0, pending: 0, reminder: 0, revenue: 0 };
           empMap[emp].total++;
           if (isContactDoneStatus(c.status)) empMap[emp].done++;
@@ -3604,7 +3603,7 @@
           fetchClientsFromCloud(false);
         } else if (currentUser.role === 'men') {
           if (roleBadge) {
-            roleBadge.innerText = '👨 عبدالرحمن أبو شامة';
+            roleBadge.innerText = '👨 عبدالرحمن';
             roleBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700';
           }
           if (adminHistoryBtn) adminHistoryBtn.style.display = 'none';
@@ -4068,10 +4067,10 @@
           }
 
           const empSelectVal = document.getElementById('clientEmployeeSelect').value;
-          let assignedEmployee = 'عبدالرحمن أبو شامة';
+          let assignedEmployee = 'عبدالرحمن';
 
           if (empSelectVal === 'custom') {
-            assignedEmployee = document.getElementById('clientEmployeeCustom').value.trim() || 'عبدالرحمن أبو شامة';
+            assignedEmployee = document.getElementById('clientEmployeeCustom').value.trim() || 'عبدالرحمن';
           } else if (empSelectVal) {
             assignedEmployee = empSelectVal;
           }
@@ -4176,7 +4175,7 @@
                 }
 
                 let category = (currentSection === 'women') ? 'women' : 'men';
-                let employee = row['الموظف'] || row['Employee'] || 'عبدالرحمن أبو شامة';
+                let employee = row['الموظف'] || row['Employee'] || 'عبدالرحمن';
                 const notes = row['الملاحظات'] || row['ملاحظات'] || row['Notes'] || '';
 
                 if (name || phone) {
@@ -4239,7 +4238,7 @@
             'حالة التواصل': c.status || 'لم يتم',
             'عدد مرات التواصل عبر واتساب': getStandardContactCount(c),
             'آخر تواصل': c.contacted_at || '',
-            'الموظف المسؤول': c.employee || 'عبدالرحمن أبو شامة',
+            'الموظف المسؤول': c.employee || 'عبدالرحمن',
             'تاريخ الإضافة': c.date || '',
             'الملاحظات': c.notes || ''
           }));
@@ -4259,7 +4258,7 @@
           });
 
           activeClients.forEach(c => {
-            const emp = c.employee || 'عبدالرحمن أبو شامة';
+            const emp = c.employee || 'عبدالرحمن';
             if (!empMap[emp]) empMap[emp] = { total: 0, done: 0, noAnswer: 0, pending: 0, reminder: 0, revenue: 0 };
             empMap[emp].total++;
             if (isContactDoneStatus(c.status)) empMap[emp].done++;
