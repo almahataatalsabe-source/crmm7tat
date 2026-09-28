@@ -797,7 +797,7 @@
             <div>
               <div class="flex items-center justify-between">
                 <span class="text-xs font-bold text-blue-800">👨 حساب الرجال (men)</span>
-                <span class="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">عبدالرحمن أبو شامة</span>
+                <span class="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">عبدالرحمن</span>
               </div>
               <div class="mt-2 flex items-center justify-between bg-slate-50 p-2 rounded-lg border border-slate-100">
                 <span class="text-xs text-gray-500 font-semibold">الباسورد:</span>
@@ -991,7 +991,7 @@
         <div>
           <label class="block text-xs font-semibold text-gray-600 mb-1">الموظف المسؤول</label>
           <select id="clientEmployeeSelect" class="w-full border rounded-xl p-2.5 text-sm outline-none focus:border-blue-500 bg-white font-semibold">
-            <option value="عبدالرحمن أبو شامة" selected>عبدالرحمن أبو شامة</option>
+            <option value="عبدالرحمن أبو شامة" selected>عبدالرحمن</option>
             <option value="مسؤولة قسم السيدات">مسؤولة قسم السيدات</option>
             <option value="إبراهيم البغدادي">إبراهيم البغدادي</option>
             <option value="محمد مدني">محمد مدني</option>
@@ -1106,13 +1106,13 @@
 
       // قائمة الموظفين الافتراضية
       const DEFAULT_EMPLOYEES = [
-        "عبدالرحمن أبو شامة"
+        "عبدالرحمن"
       ];
 
       // حسابات النظام المتزامنة سحابياً
       let cloudUsers = {
         admin: { pass: '123', role: 'admin', name: 'المدير العام (Admin)' },
-        men: { pass: '111', role: 'men', name: 'عبدالرحمن أبو شامة' },
+        men: { pass: '111', role: 'men', name: 'عبدالرحمن' },
         women: { pass: '222', role: 'women', name: 'مسؤولة قسم السيدات' },
         vip: { username: '', pass: '', role: 'vip', name: 'مستخدم VIP', enabled: false }
       };
@@ -3134,7 +3134,7 @@
                 </div>
               ` : '<span class="text-gray-300">لم يتم تواصل بعد</span>'}
             </td>
-            <td class="p-3.5 text-xs text-gray-800 font-semibold">${c.employee || 'عبدالرحمن أبو شامة'}</td>
+            <td class="p-3.5 text-xs text-gray-800 font-semibold">${c.employee || 'عبدالرحمن'}</td>
             <td class="p-3.5 text-xs text-gray-400">${c.date || '-'}</td>
             <td class="p-3.5 text-xs text-gray-500 max-w-[180px] truncate" title="${c.notes || ''}">
               ${c.notes ? `<span class="bg-gray-100 text-gray-700 px-2 py-0.5 rounded">${c.notes}</span>` : '<span class="text-gray-300">-</span>'}
@@ -3326,7 +3326,7 @@
         document.getElementById('clientNotes').value = '';
         
         document.getElementById('clientCategory').value = currentSection;
-        document.getElementById('clientEmployeeSelect').value = 'عبدالرحمن أبو شامة';
+        document.getElementById('clientEmployeeSelect').value = 'عبدالرحمن';
         document.getElementById('clientEmployeeCustom').style.display = 'none';
         document.getElementById('clientEmployeeCustom').value = '';
 
@@ -3347,7 +3347,7 @@
 
         const empSel = document.getElementById('clientEmployeeSelect');
         const empCustom = document.getElementById('clientEmployeeCustom');
-        const empName = client.employee || 'عبدالرحمن أبو شامة';
+        const empName = client.employee || 'عبدالرحمن';
 
         if (empName === 'عبدالرحمن أبو شامة' || empName === 'مسؤولة قسم السيدات' || empName === 'إبراهيم البغدادي' || empName === 'محمد مدني') {
           empSel.value = empName;
