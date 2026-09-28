@@ -447,6 +447,7 @@
             <option value="لم يتم">لم يتم التواصل</option>
             <option value="لم يرد">لم يرد</option>
             <option value="تذكير">تذكير</option>
+            <option value="متابعة">تمت المتابعة</option>
           </select>
           <span class="absolute right-3 top-3 text-gray-400 pointer-events-none">☎️</span>
         </div>
@@ -916,6 +917,35 @@
     </div>
   </div>
 
+  <!-- Modal: تذكير المتابعات الشهرية لعملاء VIP -->
+  <div id="vipMonthlyFollowUpModal" class="fixed inset-0 bg-black/65 backdrop-blur-sm items-center justify-center p-4 z-[70]" style="display: none;">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-3xl overflow-hidden border border-amber-200">
+      <div class="bg-gradient-to-l from-amber-500 to-yellow-500 text-white p-5 flex items-center justify-between gap-3">
+        <div>
+          <h3 class="text-lg font-extrabold flex items-center gap-2">🔔 تذكير متابعة عملاء VIP</h3>
+          <p id="vipMonthlyFollowUpSubtitle" class="text-xs text-amber-50 mt-1">العملاء دول حان موعد متابعتهم الشهرية.</p>
+        </div>
+        <button type="button" id="closeVipMonthlyFollowUpBtn" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-lg cursor-pointer">✕</button>
+      </div>
+
+      <div class="p-5">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2">
+            <span class="text-xs text-amber-700 font-bold">مطلوب متابعتهم اليوم / متأخر:</span>
+            <span id="vipMonthlyFollowUpCount" class="text-xl font-extrabold text-amber-800 mr-1">0</span>
+          </div>
+          <p class="text-[11px] text-gray-500 font-medium">كل عميل اتواصلت معاه بيتحدد له موعد متابعة بعد شهر تلقائيًا.</p>
+        </div>
+
+        <div id="vipMonthlyFollowUpList" class="space-y-2 max-h-[55vh] overflow-y-auto pl-1"></div>
+
+        <div class="mt-4 pt-4 border-t flex justify-end">
+          <button type="button" id="dismissVipMonthlyFollowUpBtn" class="px-5 py-2.5 bg-slate-900 hover:bg-black text-white rounded-xl text-xs font-bold cursor-pointer">تمام، هتابعهم</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal: إضافة / تعديل عميل -->
   <div id="clientModal" class="fixed inset-0 bg-black/60 items-center justify-center p-4 z-50" style="display: none;">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 relative">
@@ -973,6 +1003,7 @@
             <option value="تم">تم</option>
             <option value="لم يرد">لم يرد</option>
             <option value="تذكير">تذكير</option>
+            <option value="متابعة">تمت المتابعة</option>
           </select>
         </div>
 
@@ -1096,6 +1127,7 @@
       let pageSize = 50;
       let searchDebounceTimer = null;
       let followUpPopupShownForSession = false;
+      let vipFollowUpPopupShownForSession = false;
       let vipCleanupActive = false;
       let vipRealtimeRefreshTimer = null;
 
@@ -1288,8 +1320,8 @@
 
         // ترتيب بحيث نفضل الاحتفاظ بالسجلات ذات الحالة المكتملة أو الأحدث
         const sorted = [...clients].sort((a, b) => {
-          if (a.status === 'تم' && b.status !== 'تم') return -1;
-          if (b.status === 'تم' && a.status !== 'تم') return 1;
+          if (isContactDoneStatus(a.status) && !isContactDoneStatus(b.status)) return -1;
+          if (isContactDoneStatus(b.status) && !isContactDoneStatus(a.status)) return 1;
           return (b.id || 0) - (a.id || 0);
         });
 
@@ -1427,6 +1459,207 @@
         return cleaned;
       }
 
+      // ================= تتبع تواصل واتساب العملاء العاديين =================
+      // زر واتساب هو نقطة التسجيل الرسمية للتواصل:
+      // أول ضغطة = تم التواصل، وكل ضغطة لاحقة = تمت المتابعة.
+      // يتم حفظ عدد مرات التواصل في whatsapp_contact_count،
+      // ويُستخدم contacted_at كتاريخ آخر تواصل فعلي عبر واتساب.
+      function getStandardContactCount(client) {
+        const n = Number(client && client.whatsapp_contact_count);
+        return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+      }
+
+      function isContactDoneStatus(status) {
+        return status === 'تم' || status === 'متابعة';
+      }
+
+      function getStandardContactBadge(client) {
+        const count = getStandardContactCount(client);
+        if (count > 1) {
+          return `<span class="inline-flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-full text-[9px] font-extrabold whitespace-nowrap">↻ تمت المتابعة ×${count.toLocaleString('ar-EG')}</span>`;
+        }
+        if (count === 1) {
+          return `<span class="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded-full text-[9px] font-extrabold whitespace-nowrap">✓ تم التواصل</span>`;
+        }
+        if (String(client?.status || '') === 'متابعة') {
+          return `<span class="inline-flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-full text-[9px] font-extrabold whitespace-nowrap">↻ تمت المتابعة</span>`;
+        }
+        if (String(client?.status || '') === 'تم') {
+          return `<span class="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded-full text-[9px] font-extrabold whitespace-nowrap">✓ تم التواصل</span>`;
+        }
+        return '';
+      }
+
+      async function recordStandardWhatsAppContact(id, waUrl) {
+        // فتح واتساب أولاً قبل أي await حتى لا يمنع المتصفح فتح التبويب الجديد.
+        const waWindow = window.open(waUrl, '_blank', 'noopener,noreferrer');
+
+        const client = clients.find(c => String(c.id) === String(id));
+        if (!client) return false;
+
+        const oldCount = getStandardContactCount(client);
+        const newCount = oldCount + 1;
+        const newStatus = oldCount === 0 ? 'تم' : 'متابعة';
+        const oldStatus = client.status || '';
+        const oldContactedAt = client.contacted_at || '';
+        const contactedAt = getCurrentFormattedTimestamp();
+        const savedScroll = window.scrollY;
+
+        // تحديث فوري على الشاشة.
+        client.whatsapp_contact_count = newCount;
+        client.status = newStatus;
+        client.contacted_at = contactedAt;
+        updateDashboardStats();
+        renderTable(true, savedScroll);
+
+        if (!supabase) return true;
+
+        try {
+          const { error } = await supabase
+            .from('clients')
+            .update({
+              status: newStatus,
+              contacted_at: contactedAt,
+              whatsapp_contact_count: newCount
+            })
+            .eq('id', id);
+
+          if (error) throw error;
+
+          logActivity(
+            newCount === 1 ? 'واتساب - أول تواصل' : 'واتساب - متابعة',
+            currentUser ? currentUser.name : (client.employee || 'موظف'),
+            client.name || '-',
+            newCount === 1
+              ? 'تم فتح واتساب وتسجيل أول تواصل مع العميل'
+              : `تم فتح واتساب وتسجيل متابعة رقم ${newCount}`
+          );
+
+          return true;
+        } catch (e) {
+          // لو الحقل الجديد غير موجود في Supabase، نوضح السبب بدلاً من فقدان التحديث.
+          client.whatsapp_contact_count = oldCount;
+          client.status = oldStatus;
+          client.contacted_at = oldContactedAt;
+          updateDashboardStats();
+          renderTable(true, savedScroll);
+          alert('تعذر تسجيل التواصل على السحابة. شغّل SQL الخاص بإضافة whatsapp_contact_count إلى جدول clients ثم جرّب مرة أخرى.\n\n' + (e.message || e));
+          return false;
+        }
+      }
+
+      // ================= تتبع تواصل واتساب VIP =================
+      // الاقتراح المعتمد: نحتفظ بحالة واتساب الحالية + عدد مرات الضغط على واتساب + آخر تواصل.
+      // أول ضغط = تم التواصل، وكل ضغط لاحق = تمت المتابعة.
+      function formatVipLastContact(value) {
+        if (!value) return '-';
+        const d = new Date(value);
+        if (Number.isNaN(d.getTime())) return String(value);
+        return d.toLocaleString('ar-EG', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      }
+
+      function getVipContactCount(client) {
+        const n = Number(client && client.whatsapp_contact_count);
+        return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+      }
+
+      function getVipContactBadge(client) {
+        const count = getVipContactCount(client);
+        if (count <= 0) return '';
+
+        if (count === 1) {
+          return `<span class="vip-contact-badge inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-lg text-[10px] font-extrabold whitespace-nowrap">✓ تم التواصل</span>`;
+        }
+
+        return `<span class="vip-contact-badge inline-flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200 px-2 py-1 rounded-lg text-[10px] font-extrabold whitespace-nowrap">↻ تمت المتابعة ×${count.toLocaleString('ar-EG')}</span>`;
+      }
+
+      async function recordVipWhatsAppContact(id, waUrl) {
+        if (!supabase || !canAccessVip()) {
+          window.open(waUrl, '_blank', 'noopener,noreferrer');
+          return;
+        }
+
+        const client = vipClients.find(c => String(c.id) === String(id));
+        if (!client) {
+          window.open(waUrl, '_blank', 'noopener,noreferrer');
+          return;
+        }
+
+        // افتح واتساب فوراً لأن فتح نافذة بعد await قد يتعامل معه المتصفح كـ popup غير مصرح.
+        const waWindow = window.open(waUrl, '_blank', 'noopener,noreferrer');
+
+        const oldCount = getVipContactCount(client);
+        const newCount = oldCount + 1;
+        const newStatus = oldCount === 0 ? 'تم' : 'متابعة';
+        const contactedAt = new Date().toISOString();
+        const oldStatus = client.whatsapp_status || '';
+        const oldLastContact = client.last_whatsapp_contact_at || '';
+
+        // تحديث فوري على الشاشة.
+        client.whatsapp_contact_count = newCount;
+        client.whatsapp_status = newStatus;
+        client.last_whatsapp_contact_at = contactedAt;
+        renderVipTable();
+        updateVipDashboard();
+        refreshVipFilterOptions();
+
+        try {
+          const { error } = await supabase
+            .from('vip_clients')
+            .update({
+              whatsapp_status: newStatus,
+              whatsapp_contact_count: newCount,
+              last_whatsapp_contact_at: contactedAt,
+              updated_at: contactedAt
+            })
+            .eq('id', id);
+
+          if (error) throw error;
+
+          logActivity(
+            'VIP واتساب',
+            currentUser ? currentUser.name : 'مستخدم VIP',
+            client.name || 'بدون اسم',
+            oldCount === 0
+              ? 'تم التواصل مع العميل لأول مرة عبر زر واتساب'
+              : `تمت متابعة العميل عبر واتساب. عدد مرات التواصل: ${newCount}`
+          );
+
+          // لو التحديث تم من نافذة المتابعة الشهرية، العميل يخرج منها فوراً
+          // لأن موعده القادم أصبح بعد شهر من التواصل الجديد.
+          const vipFollowUpModal = document.getElementById('vipMonthlyFollowUpModal');
+          if (vipFollowUpModal && vipFollowUpModal.style.display === 'flex') {
+            renderVipMonthlyFollowUpPopup();
+          }
+        } catch (e) {
+          // رجوع للحالة السابقة لو قاعدة البيانات رفضت الحفظ.
+          client.whatsapp_contact_count = oldCount;
+          client.whatsapp_status = oldStatus;
+          client.last_whatsapp_contact_at = oldLastContact;
+          renderVipTable();
+          updateVipDashboard();
+          refreshVipFilterOptions();
+          if (waWindow && !waWindow.closed) {
+            try { waWindow.close(); } catch (_) {}
+          }
+          alert('تعذر تسجيل تواصل واتساب: ' + (e.message || e));
+        }
+      }
+
+      function getVipWhatsappStatusLabel(value) {
+        const v = String(value ?? '').trim();
+        if (v === 'تم') return 'تم التواصل';
+        if (v === 'متابعة') return 'تمت المتابعة';
+        return v;
+      }
+
       function buildVipStatusOptions(currentValue, commonValues) {
         const current = String(currentValue ?? '');
         const values = [];
@@ -1436,7 +1669,7 @@
           if (!values.includes(v)) values.push(v);
         });
         return values.map(v => {
-          const label = v === '' ? '—' : v;
+          const label = v === '' ? '—' : getVipWhatsappStatusLabel(v);
           return `<option value="${escapeHtml(v)}" ${v === current ? 'selected' : ''}>${escapeHtml(label)}</option>`;
         }).join('');
       }
@@ -1461,7 +1694,7 @@
         });
 
         whatsappFilter.innerHTML = '<option value="">كل حالات واتساب</option>' +
-          whatsappValues.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+          whatsappValues.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(getVipWhatsappStatusLabel(v))}</option>`).join('');
         supportFilter.innerHTML = '<option value="">كل حالات الدعم</option>' +
           supportValues.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
 
@@ -1475,8 +1708,9 @@
         const revenueEl = document.getElementById('vipTotalRevenue');
 
         const doneCount = vipClients.filter(c => {
+          const count = getVipContactCount(c);
           const s = String(c.whatsapp_status || '').trim();
-          return s.includes('تم') && !s.includes('لم');
+          return count > 0 || (s.includes('تم') && !s.includes('لم'));
         }).length;
         const revenue = vipClients.reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
 
@@ -1503,6 +1737,12 @@
             if (whatsapp && String(c.whatsapp_status || '') !== whatsapp) return false;
             if (support && String(c.support_status || '') !== support) return false;
             return true;
+          })
+          .sort((a, b) => {
+            const ta = a.last_whatsapp_contact_at ? new Date(a.last_whatsapp_contact_at).getTime() : 0;
+            const tb = b.last_whatsapp_contact_at ? new Date(b.last_whatsapp_contact_at).getTime() : 0;
+            if (ta !== tb) return tb - ta;
+            return (Number(a.id) || 0) - (Number(b.id) || 0);
           });
       }
 
@@ -1568,11 +1808,17 @@
               ${isAdmin ? `<input type="checkbox" class="vip-row-checkbox w-4 h-4 accent-red-600 cursor-pointer" data-id="${escapeHtml(c.id)}" ${selectedVipIds.has(rowId) ? 'checked' : ''}>` : ''}
             </td>
             <td class="p-3.5 text-gray-500 font-semibold">${index + 1}</td>
-            <td class="p-3.5 font-bold text-gray-900">${c.name ? escapeHtml(c.name) : '<span class="text-red-500">بدون اسم</span>'}</td>
+            <td class="p-3.5 font-bold text-gray-900">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span>${c.name ? escapeHtml(c.name) : '<span class="text-red-500">بدون اسم</span>'}</span>
+                ${getVipContactBadge(c)}
+              </div>
+              ${c.last_whatsapp_contact_at ? `<div class="text-[9px] text-gray-400 mt-1">آخر تواصل: ${escapeHtml(formatVipLastContact(c.last_whatsapp_contact_at))}</div>` : ''}
+            </td>
             <td class="p-3.5">
               <div class="flex items-center gap-2 flex-wrap">
                 <span dir="ltr" class="font-mono text-xs font-bold text-gray-700">${escapeHtml(phone)}</span>
-                ${waPhone ? `<a href="https://wa.me/${encodeURIComponent(waPhone)}" target="_blank" rel="noopener noreferrer" class="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-1 rounded-lg font-bold hover:bg-emerald-100">واتساب</a>` : ''}
+                ${waPhone ? `<a href="https://wa.me/${encodeURIComponent(waPhone)}" data-vip-wa-id="${escapeHtml(c.id)}" data-vip-wa-url="https://wa.me/${encodeURIComponent(waPhone)}" class="vip-whatsapp-link text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-1 rounded-lg font-bold hover:bg-emerald-100">واتساب</a>` : ''}
                 <button type="button" class="vip-edit-phone-btn text-[10px] bg-violet-50 text-violet-700 border border-violet-100 px-2 py-1 rounded-lg font-bold hover:bg-violet-100" data-id="${escapeHtml(c.id)}">✏️ تعديل الرقم</button>
               </div>
             </td>
@@ -1611,6 +1857,13 @@
             if (this.checked) selectedVipIds.add(id);
             else selectedVipIds.delete(id);
             renderVipTable();
+          });
+        });
+        tbody.querySelectorAll('.vip-whatsapp-link').forEach(el => {
+          el.addEventListener('click', async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            await recordVipWhatsAppContact(this.dataset.vipWaId, this.dataset.vipWaUrl);
           });
         });
         tbody.querySelectorAll('.vip-whatsapp-status').forEach(el => {
@@ -1858,6 +2111,8 @@
           phone,
           whatsapp_status: whatsappStatus,
           support_status: supportStatus,
+          whatsapp_contact_count: 0,
+          last_whatsapp_contact_at: null,
           amount,
           date: new Date().toISOString().split('T')[0]
         };
@@ -2040,6 +2295,7 @@
           updateVipDashboard();
           refreshVipFilterOptions();
           renderVipTable();
+          maybeShowVipMonthlyFollowUpPopup();
         } catch (e) {
           console.error('VIP fetch error:', e);
           vipClients = [];
@@ -2453,6 +2709,8 @@
             phone,
             whatsapp_status: whatsappStatus,
             support_status: supportStatus,
+            whatsapp_contact_count: 0,
+            last_whatsapp_contact_at: null,
             amount,
             date: rawDate || todayStr,
             _sheet: sheetName,
@@ -2554,6 +2812,8 @@
           'الرقم': c.phone || '',
           'التواصل واتس اب': c.whatsapp_status || '',
           'حالة الدعم': c.support_status || '',
+          'عدد مرات التواصل واتساب': getVipContactCount(c),
+          'آخر تواصل واتساب': c.last_whatsapp_contact_at || '',
           'المبلغ': c.amount || 0,
           'تاريخ الإضافة': c.date || ''
         }));
@@ -2773,7 +3033,7 @@
         today.setHours(0, 0, 0, 0);
 
         return getActiveSectionClients()
-          .filter(c => c && c.status === 'تم' && c.contacted_at)
+          .filter(c => c && getStandardContactCount(c) > 0 && c.contacted_at)
           .map(c => {
             const lastContact = parseContactedAt(c.contacted_at);
             if (!lastContact) return null;
@@ -2783,6 +3043,105 @@
           })
           .filter(item => item && item.dueDate <= today)
           .sort((a, b) => a.dueDate - b.dueDate);
+      }
+
+      function getVipMonthlyFollowUpsDue() {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        return vipClients
+          .filter(c => c && getVipContactCount(c) > 0 && c.last_whatsapp_contact_at)
+          .map(c => {
+            const lastContact = new Date(c.last_whatsapp_contact_at);
+            if (Number.isNaN(lastContact.getTime())) return null;
+            const dueDate = addOneMonthClamped(lastContact);
+            const overdueDays = Math.max(0, Math.floor((today - dueDate) / 86400000));
+            return { client: c, lastContact, dueDate, overdueDays };
+          })
+          .filter(item => item && item.dueDate <= today)
+          .sort((a, b) => a.dueDate - b.dueDate);
+      }
+
+      function closeVipMonthlyFollowUpPopup() {
+        const modal = document.getElementById('vipMonthlyFollowUpModal');
+        if (modal) modal.style.display = 'none';
+      }
+
+      function renderVipMonthlyFollowUpPopup() {
+        const modal = document.getElementById('vipMonthlyFollowUpModal');
+        const list = document.getElementById('vipMonthlyFollowUpList');
+        const countEl = document.getElementById('vipMonthlyFollowUpCount');
+        const subtitle = document.getElementById('vipMonthlyFollowUpSubtitle');
+        if (!modal || !list || !countEl) return;
+
+        const dueItems = getVipMonthlyFollowUpsDue();
+        if (dueItems.length === 0) {
+          closeVipMonthlyFollowUpPopup();
+          return;
+        }
+
+        countEl.innerText = dueItems.length.toLocaleString('ar-EG');
+        if (subtitle) {
+          subtitle.innerText = `عندك ${dueItems.length.toLocaleString('ar-EG')} عميل VIP حان موعد المتابعة الشهرية معاهم.`;
+        }
+        list.innerHTML = '';
+
+        dueItems.forEach(item => {
+          const c = item.client;
+          const normalizedPhone = normalizePhoneNumber(c.phone);
+          const waPhone = formatWhatsAppPhone(normalizedPhone);
+          const waMessage = `السلام عليكم و رحمة الله و بركاته\nمتابعة شهرية لعميل VIP`;
+          const waLink = waPhone ? `https://wa.me/${waPhone}?text=${encodeURIComponent(waMessage)}` : '#';
+          const dueText = item.overdueDays > 0
+            ? `متأخر ${item.overdueDays.toLocaleString('ar-EG')} يوم`
+            : 'موعد المتابعة اليوم';
+          const count = getVipContactCount(c);
+
+          const card = document.createElement('div');
+          card.className = 'border border-gray-200 rounded-2xl p-3.5 bg-gray-50 flex flex-col md:flex-row md:items-center justify-between gap-3';
+          card.innerHTML = `
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="font-extrabold text-gray-900">${escapeHtml(c.name || 'عميل VIP')}</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-full font-bold ${item.overdueDays > 0 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}">${dueText}</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-blue-50 text-blue-700 border border-blue-100">متابعة رقم ${count.toLocaleString('ar-EG')}</span>
+              </div>
+              <div class="text-xs text-gray-500 mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                <span>📞 ${escapeHtml(normalizedPhone || '-')}</span>
+                <span>آخر تواصل: ${escapeHtml(formatShortArabicDate(item.lastContact))}</span>
+                <span>موعد المتابعة: ${escapeHtml(formatShortArabicDate(item.dueDate))}</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              ${waPhone ? `<a href="${waLink}" data-vip-monthly-wa-id="${escapeHtml(c.id)}" data-vip-monthly-wa-url="${waLink}" class="vip-monthly-wa-link bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-2 rounded-xl text-xs font-bold cursor-pointer">💬 فتح واتساب وتسجيل المتابعة</a>` : `<span class="text-xs text-red-500 font-bold">لا يوجد رقم واتساب</span>`}
+            </div>`;
+          list.appendChild(card);
+        });
+
+        list.querySelectorAll('.vip-monthly-wa-link').forEach(link => {
+          link.addEventListener('click', async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const id = this.dataset.vipMonthlyWaId;
+            const url = this.dataset.vipMonthlyWaUrl;
+            this.classList.add('opacity-60', 'pointer-events-none');
+            await recordVipWhatsAppContact(id, url);
+            renderVipMonthlyFollowUpPopup();
+          });
+        });
+
+        modal.style.display = 'flex';
+      }
+
+      function maybeShowVipMonthlyFollowUpPopup() {
+        if (vipFollowUpPopupShownForSession || !currentUser) return;
+        if (currentUser.role !== 'vip' && currentUser.role !== 'admin') return;
+
+        const dueItems = getVipMonthlyFollowUpsDue();
+        if (dueItems.length === 0) return;
+
+        vipFollowUpPopupShownForSession = true;
+        renderVipMonthlyFollowUpPopup();
       }
 
       function closeMonthlyFollowUpPopup() {
@@ -2811,70 +3170,47 @@
           const c = item.client;
           const normalizedPhone = normalizePhoneNumber(c.phone);
           const waPhone = formatWhatsAppPhone(normalizedPhone);
-          const waMessage = `السلام عليكم و رحمة الله و بركاته\nمتابعة شهرية من قسم العلاقات العامة بالمحطات السبع`;
-          const waLink = `https://wa.me/${waPhone}?text=${encodeURIComponent(waMessage)}`;
+          let waMessage = `السلام عليكم و رحمة الله و بركاته\nمع حضرتك عبدالرحمن أبو شامة من قسم العلاقات العامة بالمحطات السبع`;
+          if (c.category === 'women') {
+            waMessage = `السلام عليكم و رحمة الله و بركاته\nمع حضرتك مسؤولة التواصل من قسم العلاقات العامة بالمحطات السبع`;
+          }
+          const waLink = waPhone ? `https://wa.me/${waPhone}?text=${encodeURIComponent(waMessage)}` : '#';
           const dueText = item.overdueDays > 0
             ? `متأخر ${item.overdueDays.toLocaleString('ar-EG')} يوم`
             : 'موعد المتابعة اليوم';
+          const count = getStandardContactCount(c);
 
           const card = document.createElement('div');
           card.className = 'border border-gray-200 rounded-2xl p-3.5 bg-gray-50 flex flex-col md:flex-row md:items-center justify-between gap-3';
           card.innerHTML = `
             <div class="min-w-0">
               <div class="flex flex-wrap items-center gap-2">
-                <span class="font-extrabold text-gray-900">${c.name || 'عميل'}</span>
+                <span class="font-extrabold text-gray-900">${escapeHtml(c.name || 'عميل')}</span>
                 <span class="text-[10px] px-2 py-0.5 rounded-full font-bold ${item.overdueDays > 0 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}">${dueText}</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-blue-50 text-blue-700 border border-blue-100">متابعة رقم ${count.toLocaleString('ar-EG')}</span>
               </div>
               <div class="text-xs text-gray-500 mt-1 flex flex-wrap gap-x-3 gap-y-1">
-                <span>📞 ${normalizedPhone || '-'}</span>
-                <span>آخر تواصل: ${formatShortArabicDate(item.lastContact)}</span>
-                <span>موعد المتابعة: ${formatShortArabicDate(item.dueDate)}</span>
-                <span>الموظف: ${c.employee || '-'}</span>
+                <span>📞 ${escapeHtml(normalizedPhone || '-')}</span>
+                <span>آخر تواصل: ${escapeHtml(formatShortArabicDate(item.lastContact))}</span>
+                <span>موعد المتابعة: ${escapeHtml(formatShortArabicDate(item.dueDate))}</span>
+                <span>الموظف: ${escapeHtml(c.employee || '-')}</span>
               </div>
             </div>
             <div class="flex items-center gap-2 shrink-0">
-              <a href="${waLink}" target="_blank" class="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-2 rounded-xl text-xs font-bold">💬 واتساب</a>
-              <button type="button" data-followup-done="${c.id}" class="followup-done-btn bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-xl text-xs font-bold cursor-pointer">✓ تم التواصل الآن</button>
+              ${waPhone ? `<a href="${waLink}" data-monthly-wa-id="${escapeHtml(c.id)}" data-monthly-wa-url="${waLink}" class="monthly-wa-link bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-2 rounded-xl text-xs font-bold cursor-pointer">💬 فتح واتساب وتسجيل المتابعة</a>` : `<span class="text-xs text-red-500 font-bold">لا يوجد رقم واتساب</span>`}
             </div>`;
           list.appendChild(card);
         });
 
-        list.querySelectorAll('.followup-done-btn').forEach(btn => {
-          btn.addEventListener('click', async function() {
-            const id = this.getAttribute('data-followup-done');
-            const targetClient = clients.find(c => String(c.id) === String(id));
-            if (!targetClient) return;
-
-            const newContactedAt = getCurrentFormattedTimestamp();
-            this.disabled = true;
-            this.innerText = 'جاري الحفظ...';
-
-            targetClient.status = 'تم';
-            targetClient.contacted_at = newContactedAt;
-            updateDashboardStats();
-            renderTable(false);
-
-            if (supabase) {
-              const { error } = await supabase
-                .from('clients')
-                .update({ status: 'تم', contacted_at: newContactedAt })
-                .eq('id', id);
-
-              if (error) {
-                alert('تعذر تحديث آخر تواصل: ' + error.message);
-                await fetchClientsFromCloud(true);
-                return;
-              }
-
-              logActivity(
-                'تغيير حالة',
-                currentUser ? currentUser.name : (targetClient.employee || 'موظف'),
-                targetClient.name || '-',
-                'تم تسجيل متابعة شهرية جديدة وتحديث تاريخ آخر تواصل'
-              );
-            }
-
-            renderMonthlyFollowUpPopup();
+        list.querySelectorAll('.monthly-wa-link').forEach(link => {
+          link.addEventListener('click', async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const id = this.dataset.monthlyWaId;
+            const url = this.dataset.monthlyWaUrl;
+            this.classList.add('opacity-60', 'pointer-events-none');
+            const ok = await recordStandardWhatsAppContact(id, url);
+            if (ok) renderMonthlyFollowUpPopup();
           });
         });
 
@@ -2883,7 +3219,7 @@
 
       function maybeShowMonthlyFollowUpPopup() {
         if (followUpPopupShownForSession || !currentUser) return;
-        if (currentUser.role === 'admin' || currentUser.role === 'vip') return;
+        if (currentUser.role === 'vip') return;
         followUpPopupShownForSession = true;
         renderMonthlyFollowUpPopup();
       }
@@ -2915,7 +3251,7 @@
 
         for (let i = 0; i < currentMonthClients.length; i++) {
           const c = currentMonthClients[i];
-          if (c.status === 'تم') monthDoneCount++;
+          if (isContactDoneStatus(c.status)) monthDoneCount++;
           else if (c.status === 'لم يرد') monthNoAnswerCount++;
           else if (c.status === 'تذكير') monthReminderCount++;
           else monthPendingCount++; // يشمل "لم يتم" وأي حالة فارغة/قديمة
@@ -2956,7 +3292,7 @@
 
         for (let i = 0; i < activeClients.length; i++) {
           const c = activeClients[i];
-          if (c.status === 'تم') doneCount++;
+          if (isContactDoneStatus(c.status)) doneCount++;
           else if (c.status === 'لم يتم' || !c.status) pendingCount++;
           totalRevenue += (parseFloat(c.amount) || 0);
         }
@@ -3140,7 +3476,10 @@
               <input type="checkbox" data-id="${c.id}" class="row-checkbox w-4 h-4 text-blue-600 rounded cursor-pointer" ${isSelected ? 'checked' : ''}>
             </td>
             <td class="p-3.5 text-gray-400 text-xs">${globalIdx}</td>
-            <td class="p-3.5 font-bold text-gray-900">${c.name || '-'}</td>
+            <td class="p-3.5 font-bold text-gray-900">
+              <div>${c.name || '-'}</div>
+              ${getStandardContactBadge(c) ? `<div class="mt-1">${getStandardContactBadge(c)}</div>` : ''}
+            </td>
             <td class="p-3.5 font-mono text-gray-800 text-xs font-bold" dir="ltr">${normalizedPhone || '-'}</td>
             <td class="p-3.5 font-bold text-blue-700">${Number(c.amount || 0).toLocaleString('ar-EG')} ج.م</td>
             <td class="p-3.5">${getTierBadge(tier)}</td>
@@ -3151,6 +3490,7 @@
                 <option value="تم" ${c.status === 'تم' ? 'selected' : ''}>تم</option>
                 <option value="لم يرد" ${c.status === 'لم يرد' ? 'selected' : ''}>لم يرد</option>
                 <option value="تذكير" ${c.status === 'تذكير' ? 'selected' : ''}>تذكير</option>
+                <option value="متابعة" ${c.status === 'متابعة' ? 'selected' : ''}>تمت المتابعة</option>
               </select>
             </td>
             <td class="p-3.5 text-xs">
@@ -3168,7 +3508,7 @@
             </td>
             <td class="p-3.5 text-center" onclick="event.stopPropagation()">
               <div class="flex items-center justify-center gap-1.5">
-                <a href="${waLink}" target="_blank" class="bg-emerald-500 hover:bg-emerald-600 text-white px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 shadow-sm">
+                <a href="${waLink}" target="_blank" data-standard-wa-id="${c.id}" data-standard-wa-url="${waLink}" class="standard-whatsapp-link bg-emerald-500 hover:bg-emerald-600 text-white px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 shadow-sm">
                   💬 واتساب
                 </a>
                 <button type="button" data-id="${c.id}" class="edit-btn text-blue-600 hover:text-blue-800 text-xs font-semibold px-1 cursor-pointer">تعديل</button>
@@ -3202,6 +3542,18 @@
           });
         });
 
+        // الضغط على زر واتساب = تسجيل تواصل فعلي، وأول مرة تم التواصل وبعدها متابعة.
+        tbody.querySelectorAll('.standard-whatsapp-link').forEach(link => {
+          link.addEventListener('click', async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const id = this.dataset.standardWaId;
+            const url = this.dataset.standardWaUrl;
+            this.classList.add('opacity-60', 'pointer-events-none');
+            await recordStandardWhatsAppContact(id, url);
+          });
+        });
+
         // معالجة تغيير الحالة مع تحديث فوري والحفاظ على مكان الموظف في الجدول
         tbody.querySelectorAll('.status-select').forEach(sel => {
           sel.addEventListener('change', async function() {
@@ -3212,8 +3564,10 @@
             const newStatus = this.value;
             let updateData = { status: newStatus };
 
-            // أي محاولة تواصل فعلية تُسجل كآخر تواصل، مع الحفاظ على التاريخ السابق لو رجعت الحالة "لم يتم"
-            if (newStatus !== 'لم يتم') {
+            // زر واتساب هو المصدر الرسمي لتاريخ المتابعة. لو العميل لم يُسجل له ضغط واتساب من قبل،
+            // نحافظ على السلوك القديم عند تغيير الحالة يدويًا. بعد بدء تتبع واتساب لا نغيّر موعد المتابعة
+            // بسبب تغيير الحالة اليدوي.
+            if (newStatus !== 'لم يتم' && getStandardContactCount(targetClient) === 0) {
               updateData.contacted_at = getCurrentFormattedTimestamp();
             }
 
@@ -3491,7 +3845,7 @@
         const activeClients = getActiveSectionClients();
         const monthClients = activeClients.filter(c => (c.date || '').startsWith(targetYM));
         const total = monthClients.length;
-        const done = monthClients.filter(c => c.status === 'تم').length;
+        const done = monthClients.filter(c => isContactDoneStatus(c.status)).length;
         const noAns = monthClients.filter(c => c.status === 'لم يرد').length;
         const pending = monthClients.filter(c => c.status === 'لم يتم').length;
         const reminder = monthClients.filter(c => c.status === 'تذكير').length;
@@ -3522,7 +3876,7 @@
           const emp = c.employee || 'عبدالرحمن أبو شامة';
           if (!empMap[emp]) empMap[emp] = { total: 0, done: 0, noAnswer: 0, pending: 0, reminder: 0, revenue: 0 };
           empMap[emp].total++;
-          if (c.status === 'تم') empMap[emp].done++;
+          if (isContactDoneStatus(c.status)) empMap[emp].done++;
           else if (c.status === 'لم يرد') empMap[emp].noAnswer++;
           else if (c.status === 'لم يتم') empMap[emp].pending++;
           else if (c.status === 'تذكير') empMap[emp].reminder++;
@@ -3724,6 +4078,7 @@
 
           if (matched) {
             followUpPopupShownForSession = false;
+            vipFollowUpPopupShownForSession = false;
             currentUser = matched;
             localStorage.setItem('crm_logged_user', JSON.stringify(currentUser));
             logActivity('تسجيل دخول', currentUser.name, '-', 'تم تسجيل الدخول بنجاح للنظام');
@@ -3743,7 +4098,9 @@
           if (confirm('هل ترغب بالتأكيد في تسجيل الخروج؟')) {
             localStorage.removeItem('crm_logged_user');
             followUpPopupShownForSession = false;
+            vipFollowUpPopupShownForSession = false;
             closeMonthlyFollowUpPopup();
+            closeVipMonthlyFollowUpPopup();
             currentUser = null;
             document.getElementById('mainApp').style.display = 'none';
             document.getElementById('loginPassword').value = '';
@@ -3760,6 +4117,18 @@
         if (monthlyFollowUpModal) {
           monthlyFollowUpModal.addEventListener('click', function(e) {
             if (e.target === monthlyFollowUpModal) closeMonthlyFollowUpPopup();
+          });
+        }
+
+        const closeVipMonthlyFollowUpBtn = document.getElementById('closeVipMonthlyFollowUpBtn');
+        const dismissVipMonthlyFollowUpBtn = document.getElementById('dismissVipMonthlyFollowUpBtn');
+        const vipMonthlyFollowUpModal = document.getElementById('vipMonthlyFollowUpModal');
+
+        if (closeVipMonthlyFollowUpBtn) closeVipMonthlyFollowUpBtn.addEventListener('click', closeVipMonthlyFollowUpPopup);
+        if (dismissVipMonthlyFollowUpBtn) dismissVipMonthlyFollowUpBtn.addEventListener('click', closeVipMonthlyFollowUpPopup);
+        if (vipMonthlyFollowUpModal) {
+          vipMonthlyFollowUpModal.addEventListener('click', function(e) {
+            if (e.target === vipMonthlyFollowUpModal) closeVipMonthlyFollowUpPopup();
           });
         }
 
@@ -4109,8 +4478,11 @@
             employee: assignedEmployee,
             notes: document.getElementById('clientNotes').value.trim(),
             contacted_at: contactedAtVal,
+            whatsapp_contact_count: id ? undefined : 0,
             date: todayStr
           };
+
+          if (clientPayload.whatsapp_contact_count === undefined) delete clientPayload.whatsapp_contact_count;
 
           if (supabase) {
             try {
@@ -4188,7 +4560,9 @@
                 let status = String(row['حالة التواصل'] || row['Status'] || 'لم يتم').trim();
                 let contactedAt = row['آخر تواصل'] || row['تاريخ ووقت التواصل'] || row['وقت التواصل'] || '';
 
-                if (status.includes('تم') && !status.includes('لم')) {
+                if (status.includes('متابعة')) {
+                  status = 'متابعة';
+                } else if (status.includes('تم') && !status.includes('لم')) {
                   status = 'تم';
                 } else if (status.includes('لم يرد')) {
                   status = 'لم يرد';
@@ -4237,6 +4611,7 @@
                     employee: String(employee).trim(),
                     notes: String(notes).trim(),
                     contacted_at: contactedAt,
+                    whatsapp_contact_count: 0,
                     date: todayStr
                   });
                 }
@@ -4295,6 +4670,7 @@
             'الفئة': calculateTier(c.amount),
             'القسم': c.category === 'women' ? 'قسم السيدات' : 'القسم الرجالي',
             'حالة التواصل': c.status || 'لم يتم',
+            'عدد مرات التواصل عبر واتساب': getStandardContactCount(c),
             'آخر تواصل': c.contacted_at || '',
             'الموظف المسؤول': c.employee || 'عبدالرحمن أبو شامة',
             'تاريخ الإضافة': c.date || '',
@@ -4320,7 +4696,7 @@
             const emp = c.employee || 'عبدالرحمن أبو شامة';
             if (!empMap[emp]) empMap[emp] = { total: 0, done: 0, noAnswer: 0, pending: 0, reminder: 0, revenue: 0 };
             empMap[emp].total++;
-            if (c.status === 'تم') empMap[emp].done++;
+            if (isContactDoneStatus(c.status)) empMap[emp].done++;
             else if (c.status === 'لم يرد') empMap[emp].noAnswer++;
             else if (c.status === 'لم يتم') empMap[emp].pending++;
             else if (c.status === 'تذكير') empMap[emp].reminder++;
