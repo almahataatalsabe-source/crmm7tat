@@ -389,7 +389,7 @@
       </div>
     </div>
 
- <!-- 2. بطاقات الإحصائيات الخمسة (متناسقة وبدون تعارض) -->
+<!-- 2. بطاقات الإحصائيات الخمسة -->
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
     <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm text-center">
       <div class="text-3xl md:text-4xl font-extrabold text-gray-800" id="cardTotal">0</div>
@@ -1374,7 +1374,7 @@
 
       // المسؤول المباشر عن التواصل
       function getAutoAssignedEmployee() {
-        return 'عبدالرحمن أبو شامة';
+        return 'عبدالرحمن';
       }
 
       async function logActivity(actionType, employee, clientName, details) {
@@ -3091,7 +3091,7 @@
           const normalizedPhone = normalizePhoneNumber(c.phone);
           const waPhone = formatWhatsAppPhone(normalizedPhone);
           
-          let waMessage = `السلام عليكم و رحمة الله و بركاته\nمع حضرتك عبدالرحمن أبو شامة من قسم العلاقات العامة بالمحطات السبع`;
+          let waMessage = `السلام عليكم و رحمة الله و بركاته\nمع حضرتك عبدالرحمن من قسم العلاقات العامة بالمحطات السبع`;
           if (c.category === 'women') {
             waMessage = `السلام عليكم و رحمة الله و بركاته\nمع حضرتك مسؤولة التواصل من قسم العلاقات العامة بالمحطات السبع`;
           }
