@@ -1130,8 +1130,6 @@
       let currentPage = 1;
       let pageSize = 50;
       let searchDebounceTimer = null;
-      let followUpPopupShownForSession = false;
-      let vipFollowUpPopupShownForSession = false;
       let vipCleanupActive = false;
       let vipRealtimeRefreshTimer = null;
 
@@ -2790,13 +2788,12 @@
       }
 
       function maybeShowVipMonthlyFollowUpPopup() {
-        if (vipFollowUpPopupShownForSession || !currentUser) return;
+        if (!currentUser) return;
         if (currentUser.role !== 'vip' && currentUser.role !== 'admin') return;
 
         const dueItems = getVipMonthlyFollowUpsDue();
         if (dueItems.length === 0) return;
 
-        vipFollowUpPopupShownForSession = true;
         renderVipMonthlyFollowUpPopup();
       }
 
@@ -2824,7 +2821,6 @@
           const c = item.client;
           const normalizedPhone = normalizePhoneNumber(c.phone);
           const waPhone = formatWhatsAppPhone(normalizedPhone);
-          // ✅ تم تحديث الرسالة هنا لتكون باسم "عبدالرحمن" فقط بدون "أبو شامة"
           let waMessage = `السلام عليكم و رحمة الله و بركاته\nمع حضرتك عبدالرحمن من قسم العلاقات العامة بالمحطات السبع`;
           if (c.category === 'women') {
             waMessage = `السلام عليكم و رحمة الله و بركاته\nمع حضرتك مسؤولة التواصل من قسم العلاقات العامة بالمحطات السبع`;
@@ -2858,11 +2854,15 @@
         modal.style.display = 'flex';
       }
 
+      // ✅ تعديل هنا لضمان ظهور النافذة المنبثقة في كل مرة يدخل فيها الموقع طالما هناك عملاء متأخرون
       function maybeShowMonthlyFollowUpPopup() {
-        if (followUpPopupShownForSession || !currentUser) return;
+        if (!currentUser) return;
         if (currentUser.role === 'vip') return;
-        followUpPopupShownForSession = true;
-        renderMonthlyFollowUpPopup();
+        
+        const dueItems = getMonthlyFollowUpsDue();
+        if (dueItems.length > 0) {
+          renderMonthlyFollowUpPopup();
+        }
       }
 
       function getActiveSectionClients() {
@@ -3697,8 +3697,6 @@
           }
 
           if (matched) {
-            followUpPopupShownForSession = false;
-            vipFollowUpPopupShownForSession = false;
             currentUser = matched;
             localStorage.setItem('crm_logged_user', JSON.stringify(currentUser));
             logActivity('تسجيل دخول', currentUser.name, '-', 'تم تسجيل الدخول بنجاح للنظام');
@@ -3716,8 +3714,6 @@
         document.getElementById('btnLogout').addEventListener('click', function() {
           if (confirm('هل ترغب بالتأكيد في تسجيل الخروج؟')) {
             localStorage.removeItem('crm_logged_user');
-            followUpPopupShownForSession = false;
-            vipFollowUpPopupShownForSession = false;
             closeMonthlyFollowUpPopup();
             closeVipMonthlyFollowUpPopup();
             currentUser = null;
